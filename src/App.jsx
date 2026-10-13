@@ -2,7 +2,7 @@
 import "./App.css";
 
 // Configuración de la API: adaptable a desarrollo local y a Nginx en AWS
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3000" : "");
 const AUTH_API = `${API_BASE}/api/auth`;
 const DASHBOARD_API = `${API_BASE}/api/dashboard`;
 
