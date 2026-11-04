@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState } from "react";
 import "./App.css";
 
 // Configuración de la API: adaptable a desarrollo local y a Nginx en AWS
@@ -14,12 +14,6 @@ function App() {
   const [dashboardData, setDashboardData] = useState(null);
   const [cargandoDashboard, setCargandoDashboard] = useState(false);
   const [pruebaResultado, setPruebaResultado] = useState(null);
-
-  // ── IDS Alerts state ──────────────────────────────────────────────────────
-  const [idsAlerts, setIdsAlerts] = useState([]);
-  const [cargandoIds, setCargandoIds] = useState(false);
-  const [idsError, setIdsError] = useState(null);
-  const [idsLastUpdate, setIdsLastUpdate] = useState(null);
 
   const [modoRegistro, setModoRegistro] = useState(false);
   const [mostrarPassword, setMostrarPassword] = useState(false);
@@ -45,39 +39,6 @@ function App() {
     setMensaje("");
     setTipoMensaje("");
   }
-
-  // ── Cargar alertas IDS ────────────────────────────────────────────────────
-  const cargarIdsAlerts = useCallback(async (tokenActivo = token) => {
-    if (!tokenActivo) return;
-    setCargandoIds(true);
-    setIdsError(null);
-    try {
-      const resp = await fetch(`${DASHBOARD_API}/ids-alerts`, {
-        headers: { "Authorization": `Bearer ${tokenActivo}` },
-      });
-      if (!resp.ok) {
-        if (resp.status === 401 || resp.status === 403) { cerrarSesion(); return; }
-        throw new Error("No se pudo obtener las alertas IDS.");
-      }
-      const data = await resp.json();
-      setIdsAlerts(data.alerts || []);
-      setIdsLastUpdate(new Date().toLocaleTimeString());
-    } catch (e) {
-      setIdsError(e.message);
-    } finally {
-      setCargandoIds(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  // Auto-refresh IDS alerts cada 30 segundos cuando la sección está activa
-  useEffect(() => {
-    if (seccion === "ids" && token) {
-      cargarIdsAlerts(token);
-      const interval = setInterval(() => cargarIdsAlerts(token), 30000);
-      return () => clearInterval(interval);
-    }
-  }, [seccion, token, cargarIdsAlerts]);
 
   // Carga y validación continua Zero Trust del Dashboard
   async function cargarDashboard(tokenActivo = token) {
@@ -470,27 +431,6 @@ function App() {
           >
             Zero Trust y Controles
           </button>
-
-          <button
-            className={seccion === "ids" ? "nav-item active" : "nav-item"}
-            onClick={() => setSeccion("ids")}
-            style={{ position: "relative" }}
-          >
-            🛡️ IDS Alerts
-            {idsAlerts.length > 0 && (
-              <span style={{
-                marginLeft: "6px",
-                background: idsAlerts.some(a => a.severity === "CRÍTICO") ? "#ef4444" : "#f59e0b",
-                color: "#fff",
-                borderRadius: "999px",
-                padding: "0 6px",
-                fontSize: "0.7rem",
-                fontWeight: "bold",
-              }}>
-                {idsAlerts.length}
-              </span>
-            )}
-          </button>
         </nav>
 
         <div className="sidebar-bottom">
@@ -625,121 +565,6 @@ function App() {
                 <p><strong>Memoria utilizada:</strong> {dashboardData?.systemMetrics?.memoryUsageMb} MB</p>
                 <p><strong>Versión de Node:</strong> {dashboardData?.systemMetrics?.nodeVersion}</p>
               </article>
-            </section>
-          )}
-
-          {seccion === "ids" && (
-            <section className="secondary-view">
-              <span className="eyebrow">MONITOR EN TIEMPO REAL</span>
-              <h1>🛡️ IDS Alerts — Snort &amp; Suricata</h1>
-              <p>
-                Últimas alertas detectadas por Suricata 8 en el Backend (10.1.3.55).
-                Se actualiza automáticamente cada 30 segundos.
-              </p>
-
-              <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-                <button
-                  className="primary-button"
-                  style={{ width: "auto" }}
-                  onClick={() => cargarIdsAlerts(token)}
-                  disabled={cargandoIds}
-                >
-                  {cargandoIds ? "Actualizando..." : "🔄 Actualizar Alertas"}
-                </button>
-                {idsLastUpdate && (
-                  <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
-                    Última actualización: {idsLastUpdate}
-                  </span>
-                )}
-              </div>
-
-              {/* Resumen de severidad */}
-              {idsAlerts.length > 0 && (
-                <div className="stats-grid" style={{ marginBottom: "1.5rem" }}>
-                  <article className="stat-card" style={{ borderColor: "#ef4444" }}>
-                    <span className="stat-label">CRÍTICO</span>
-                    <strong style={{ color: "#ef4444" }}>
-                      {idsAlerts.filter(a => a.severity === "CRÍTICO").length}
-                    </strong>
-                    <small>Alertas de máxima prioridad</small>
-                  </article>
-                  <article className="stat-card" style={{ borderColor: "#f59e0b" }}>
-                    <span className="stat-label">ALTO</span>
-                    <strong style={{ color: "#f59e0b" }}>
-                      {idsAlerts.filter(a => a.severity === "ALTO").length}
-                    </strong>
-                    <small>Alertas de prioridad alta</small>
-                  </article>
-                  <article className="stat-card">
-                    <span className="stat-label">TOTAL</span>
-                    <strong>{idsAlerts.length}</strong>
-                    <small>Últimas {idsAlerts.length} entradas</small>
-                  </article>
-                </div>
-              )}
-
-              {/* Error */}
-              {idsError && (
-                <article className="panel-card" style={{ borderColor: "#ef4444", background: "rgba(239,68,68,0.05)", marginBottom: "1rem" }}>
-                  <p style={{ color: "#ef4444" }}>⚠️ {idsError}</p>
-                  <p style={{ fontSize: "0.85rem", color: "#64748b" }}>
-                    Verifica que el servicio Suricata esté activo en el Backend.
-                  </p>
-                </article>
-              )}
-
-              {/* Sin alertas */}
-              {!cargandoIds && !idsError && idsAlerts.length === 0 && (
-                <article className="panel-card" style={{ textAlign: "center", padding: "2rem" }}>
-                  <p style={{ fontSize: "1.5rem" }}>✅</p>
-                  <h3>Sin alertas detectadas</h3>
-                  <p style={{ color: "#64748b" }}>No se registraron amenazas en el log de Suricata.</p>
-                </article>
-              )}
-
-              {/* Lista de alertas */}
-              {idsAlerts.map((alert) => {
-                const colorMap = {
-                  "CRÍTICO": { border: "#ef4444", bg: "rgba(239,68,68,0.06)", badge: "#ef4444" },
-                  "ALTO":    { border: "#f59e0b", bg: "rgba(245,158,11,0.06)", badge: "#f59e0b" },
-                  "MEDIO":   { border: "#3b82f6", bg: "rgba(59,130,246,0.05)", badge: "#3b82f6" },
-                };
-                const c = colorMap[alert.severity] || { border: "#334155", bg: "transparent", badge: "#64748b" };
-
-                return (
-                  <article
-                    key={alert.id}
-                    className="panel-card"
-                    style={{ borderColor: c.border, background: c.bg, marginBottom: "0.75rem" }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
-                      <div>
-                        <span style={{
-                          display: "inline-block",
-                          background: c.badge,
-                          color: "#fff",
-                          borderRadius: "4px",
-                          padding: "2px 8px",
-                          fontSize: "0.7rem",
-                          fontWeight: "bold",
-                          marginRight: "8px",
-                        }}>
-                          {alert.severity}
-                        </span>
-                        <strong>{alert.message}</strong>
-                      </div>
-                      <span style={{ fontSize: "0.78rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                        🕐 {alert.timestamp}
-                      </span>
-                    </div>
-                    <div style={{ marginTop: "0.5rem", display: "flex", gap: "1.5rem", fontSize: "0.85rem", color: "#94a3b8", flexWrap: "wrap" }}>
-                      <span>📡 Proto: <strong style={{ color: "#cbd5e1" }}>{alert.protocol}</strong></span>
-                      <span>🌐 Origen: <strong style={{ color: "#cbd5e1" }}>{alert.srcIp}</strong></span>
-                      <span>🎯 Destino: <strong style={{ color: "#cbd5e1" }}>{alert.dstIp}</strong></span>
-                    </div>
-                  </article>
-                );
-              })}
             </section>
           )}
 
